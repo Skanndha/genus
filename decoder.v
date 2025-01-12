@@ -1,5 +1,6 @@
+new
 module decoder #(
-    parameter BUFFER_DEPTH = 6,   // Put the total number of flits here
+    parameter BUFFER_DEPTH = 6,   // Total number of flits
     parameter ADDR_WIDTH   = 14,
     parameter DATA_WIDTH   = 32
 ) (
@@ -19,10 +20,10 @@ module decoder #(
 );
 
     // State definitions
-    parameter s_IDLE   = 2'b00; // Default state
-    parameter s_SAMPLE = 2'b01; // Sample data
-    parameter s_DECODE = 2'b10; // Decode data
-    parameter s_DRIVE  = 2'b11; // Drive enable signal
+    parameter s_IDLE   = 2'b00;
+    parameter s_SAMPLE = 2'b01;
+    parameter s_DECODE = 2'b10;
+    parameter s_DRIVE  = 2'b11;
 
     // Buffer to store the input values
     reg [15:0] r_buffer[0:BUFFER_DEPTH-1];
@@ -33,8 +34,8 @@ module decoder #(
     reg r_decode_complete_flag;
 
     // Registers to store decoded data
-    reg [31:0] r_data;
-    reg [13:0] r_address;
+    reg [DATA_WIDTH-1:0] r_data;
+    reg [ADDR_WIDTH-1:0] r_address;
     reg r_rw;
     reg r_drive_complete_flag;
 
@@ -44,27 +45,16 @@ module decoder #(
             r_state <= s_IDLE;
         end else begin
             case (r_state)
-                s_IDLE: begin
-                    r_state <= (i_en) ? s_SAMPLE : s_IDLE;
-                end
-                s_SAMPLE: begin
-                    r_state <= (r_sample_complete_flag) ? s_DECODE : s_SAMPLE;
-                end
-                s_DECODE: begin
-                    r_state <= (r_decode_complete_flag) ? s_DRIVE : s_DECODE;
-                end
-                s_DRIVE: begin
-                    r_state <= (r_drive_complete_flag) ? s_IDLE : s_DRIVE;
-                end
-                default: begin
-                    r_state <= s_IDLE;
-                end
+                s_IDLE: r_state <= (i_en) ? s_SAMPLE : s_IDLE;
+                s_SAMPLE: r_state <= (r_sample_complete_flag) ? s_DECODE : s_SAMPLE;
+                s_DECODE: r_state <= (r_decode_complete_flag) ? s_DRIVE : s_DECODE;
+                s_DRIVE: r_state <= (r_drive_complete_flag) ? s_IDLE : s_DRIVE;
             endcase
         end
     end
 
     // State behavior logic
-    always @(*) begin
+    always @(posedge clk) begin
         case (r_state)
             s_IDLE: begin
                 r_sample_complete_flag <= 0;
@@ -84,7 +74,6 @@ module decoder #(
             s_DECODE: begin
                 r_address <= r_buffer[1][15:2];
                 r_rw <= r_buffer[1][1];
-                // Concatenating the different parts of the body flit
                 r_data <= {r_buffer[2][15:1], r_buffer[3][15:1], r_buffer[4][15:14]};
                 r_decode_complete_flag <= 1;
             end
